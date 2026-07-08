@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinSpread AI — Professional Underwriting Spreader</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0F1C33;--navy-mid:#1B2E4B;--navy-light:#243a5e;
+  --gold:#C9A84C;--gold-light:#E8C96A;--gold-pale:#FDF8EE;
+  --white:#FFFFFF;--off:#F5F7FA;--border:#E2E8F0;--border-mid:#CBD5E0;
+  --text:#0F1C33;--text2:#4A5568;--text3:#8A96A3;
+  --green:#276749;--green-bg:#F0FFF4;--green-border:#9AE6B4;
+  --amber:#92400E;--amber-bg:#FFFBEB;--amber-border:#FCD34D;
+  --red:#9B2335;--red-bg:#FFF5F5;--red-border:#FEB2B2;
+  --r:10px;--rl:14px;
+}
+html,body{min-height:100vh;font-family:'Segoe UI',system-ui,sans-serif;background:var(--off);color:var(--text)}
+.nav{background:var(--navy);height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 2rem;position:sticky;top:0;z-index:50}
+.nav-brand{display:flex;align-items:center;gap:10px}
+.nav-logo{width:30px;height:30px;background:var(--gold);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:14px;font-weight:700;color:var(--navy)}
+.nav-name{font-size:15px;font-weight:700;color:var(--white);letter-spacing:-.01em}
+.nav-name span{color:var(--gold)}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-user{font-size:12px;color:rgba(255,255,255,.5)}
+.nav-btn{font-size:12px;font-weight:600;padding:6px 14px;border-radius:7px;cursor:pointer;border:none;transition:all .15s}
+.nav-dash{background:rgba(255,255,255,.1);color:var(--white)}
+.nav-dash:hover{background:rgba(255,255,255,.18)}
+.nav-signout{background:rgba(201,168,76,.15);color:var(--gold);border:1px solid rgba(201,168,76,.3)}
+.nav-signout:hover{background:rgba(201,168,76,.25)}
+.screen{display:none}
+.screen.active{display:block}
+.auth-wrap{min-height:100vh;background:var(--navy);display:flex;align-items:center;justify-content:center;padding:2rem}
+.auth-card{background:var(--white);border-radius:var(--rl);padding:2.5rem;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.auth-logo{width:52px;height:52px;background:var(--navy);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-family:monospace;font-size:22px;font-weight:700;color:var(--gold)}
+.auth-title{font-size:22px;font-weight:800;color:var(--navy);text-align:center;margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--text2);text-align:center;margin-bottom:1.75rem;line-height:1.6}
+.auth-tabs{display:flex;gap:0;margin-bottom:1.5rem;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.auth-tab{flex:1;padding:9px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--text3);transition:all .15s}
+.auth-tab.active{background:var(--navy);color:var(--white)}
+.auth-field{margin-bottom:12px}
+.auth-field label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px}
+.auth-input{width:100%;padding:10px 14px;font-size:14px;border:1px solid var(--border);border-radius:var(--r);outline:none;color:var(--text);transition:border-color .15s}
+.auth-input:focus{border-color:var(--navy)}
+.auth-submit{width:100%;padding:13px;font-size:15px;font-weight:800;background:var(--navy);color:var(--white);border:none;border-radius:var(--r);cursor:pointer;margin-top:6px;transition:background .2s}
+.auth-submit:hover{background:var(--navy-mid)}
+.auth-submit:disabled{opacity:.5;cursor:not-allowed}
+.auth-msg{font-size:13px;text-align:center;margin-top:12px;padding:9px;border-radius:7px;display:none}
+.auth-msg.err{background:var(--red-bg);color:var(--red);display:block}
+.auth-msg.ok{background:var(--green-bg);color:var(--green);display:block}
+.locked-wrap{min-height:100vh;background:var(--navy);display:flex;align-items:center;justify-content:center;padding:2rem}
+.locked-card{background:var(--white);border-radius:var(--rl);padding:2.5rem;max-width:460px;width:100%;text-align:center}
+.locked-icon{width:56px;height:56px;background:var(--red-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px}
+.locked-title{font-size:20px;font-weight:800;color:var(--navy);margin-bottom:10px}
+.locked-body{font-size:14px;color:var(--text2);line-height:1.7;margin-bottom:1.5rem}
+.locked-email{font-size:13px;color:var(--text3);margin-top:1rem}
+.locked-signout{font-size:13px;font-weight:600;color:var(--navy);background:none;border:1px solid var(--border);padding:8px 18px;border-radius:7px;cursor:pointer;margin-top:12px}
+.dash-wrap{max-width:900px;margin:0 auto;padding:2rem 1.5rem}
+.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;flex-wrap:gap}
+.dash-title{font-size:22px;font-weight:800;color:var(--navy)}
+.dash-subtitle{font-size:13px;color:var(--text3);margin-top:3px}
+.new-spread-btn{font-size:14px;font-weight:700;background:var(--navy);color:var(--white);border:none;padding:10px 22px;border-radius:var(--r);cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .2s}
+.new-spread-btn:hover{background:var(--navy-mid)}
+.new-spread-btn span{color:var(--gold);font-size:16px}
+.dash-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem}
+.dash-stat{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem 1.5rem}
+.dash-stat-val{font-size:28px;font-weight:800;color:var(--navy)}
+.dash-stat-label{font-size:12px;color:var(--text3);margin-top:3px}
+.history-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:1rem}
+.history-empty{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:3rem;text-align:center}
+.history-empty-icon{font-size:32px;margin-bottom:12px}
+.history-empty h3{font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px}
+.history-empty p{font-size:13px;color:var(--text3);line-height:1.6}
+.history-list{display:flex;flex-direction:column;gap:.75rem}
+.history-item{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:1.125rem 1.5rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:all .15s;flex-wrap:wrap;gap:10px}
+.history-item:hover{border-color:var(--navy);box-shadow:0 2px 12px rgba(15,28,51,.1)}
+.history-item-left{display:flex;align-items:center;gap:14px}
+.history-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.history-dot.ok{background:var(--green)}
+.history-dot.warn{background:#F59E0B}
+.history-dot.bad{background:var(--red)}
+.history-company{font-size:14px;font-weight:700;color:var(--navy)}
+.history-meta{font-size:12px;color:var(--text3);margin-top:2px}
+.history-item-right{display:flex;align-items:center;gap:10px}
+.history-flag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:4px}
+.history-flag.ok{background:var(--green-bg);color:var(--green)}
+.history-flag.warn{background:var(--amber-bg);color:var(--amber)}
+.history-flag.bad{background:var(--red-bg);color:var(--red)}
+.history-expiry{font-size:11px;color:var(--text3)}
+.history-delete{font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px}
+.history-delete:hover{background:var(--red-bg);color:var(--red)}
+.expiry-warn{font-size:12px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-border);border-radius:7px;padding:10px 14px;margin-bottom:1rem;display:none}
+.tool-back{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;margin-bottom:1.5rem;background:none;border:none;padding:0}
+.tool-back:hover{color:var(--navy)}
+.hero{background:var(--navy);padding:2.5rem 2rem 3.5rem;text-align:center;position:relative;overflow:hidden}
+.hero-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--gold);background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.2);padding:4px 12px;border-radius:20px;margin-bottom:1.25rem}
+.hero h1{font-size:clamp(22px,3vw,34px);font-weight:800;color:var(--white);line-height:1.15;letter-spacing:-.02em;margin-bottom:.875rem}
+.hero h1 em{font-style:normal;color:var(--gold)}
+.hero-sub{font-size:14px;color:rgba(255,255,255,.6);max-width:500px;margin:0 auto;line-height:1.65}
+.main{max-width:800px;margin:-2rem auto 2rem;padding:0 1.5rem;position:relative;z-index:1}
+.card{background:var(--white);border-radius:var(--rl);border:1px solid var(--border);box-shadow:0 4px 20px rgba(15,28,51,.09);overflow:hidden;margin-bottom:1rem}
+.card-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-head h2{font-size:15px;font-weight:700;color:var(--text)}
+.card-head p{font-size:12px;color:var(--text3);margin-top:2px}
+.card-body{padding:1.5rem}
+.drop{border:2px dashed var(--border-mid);border-radius:var(--r);padding:2.25rem 1.5rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--off)}
+.drop:hover,.drop.over{border-color:var(--gold);background:var(--gold-pale)}
+.drop-icon{width:52px;height:52px;background:var(--navy);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto .875rem}
+.drop-icon svg{width:24px;height:24px;stroke:var(--gold);stroke-width:1.75;fill:none}
+.drop h3{font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px}
+.drop p{font-size:12px;color:var(--text3);line-height:1.5}
+.drop-tags{display:flex;justify-content:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+.dtag{font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(15,28,51,.06);color:var(--text2);font-weight:500}
+.file-pill{display:inline-flex;align-items:center;gap:7px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:8px;padding:7px 13px;font-size:12px;color:var(--green);font-weight:600;margin-top:10px}
+.rm{background:none;border:none;color:#68D391;cursor:pointer;font-size:16px;padding:0 0 0 3px}
+.or{display:flex;align-items:center;gap:12px;margin:1rem 0;font-size:12px;color:var(--text3);font-weight:600}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--border)}
+.paste-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:12px;font-weight:700;color:var(--text2)}
+.sample-btn{font-size:12px;color:#2563EB;background:none;border:none;cursor:pointer;font-weight:600}
+.sample-btn:hover{text-decoration:underline}
+textarea{width:100%;min-height:100px;font-family:'Courier New',monospace;font-size:12px;color:var(--text);background:var(--off);border:1px solid var(--border);border-radius:var(--r);padding:10px 13px;resize:vertical;outline:none;transition:border-color .15s;line-height:1.6}
+textarea:focus{border-color:var(--navy-light)}
+textarea::placeholder{color:var(--text3)}
+.analyze-btn{width:100%;padding:13px;font-size:15px;font-weight:800;background:var(--navy);color:var(--white);border:none;border-radius:var(--r);cursor:pointer;transition:background .2s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:1.25rem;letter-spacing:.01em}
+.analyze-btn:hover{background:var(--navy-light)}
+.analyze-btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-gold{color:var(--gold)}
+.status{display:none;align-items:center;gap:9px;padding:9px 0 0;font-size:13px;color:var(--text2)}
+.status.on{display:flex}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 1.2s ease-in-out infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes pulse{0%,100%{opacity:.2}50%{opacity:1}}
+.err{display:none;font-size:13px;color:var(--red);background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r);padding:10px 14px;margin-top:10px}
+.err.on{display:block}
+#results{display:none;max-width:800px;margin:1rem auto 3rem;padding:0 1.5rem}
+#results.on{display:block}
+.res-card{background:var(--white);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;box-shadow:0 4px 20px rgba(15,28,51,.08);margin-bottom:1rem}
+.res-head{background:var(--navy);padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.res-head-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.res-company{font-size:15px;font-weight:700;color:var(--white)}
+.res-industry{font-size:12px;color:rgba(255,255,255,.45);margin-top:1px}
+.res-actions{display:flex;gap:8px;flex-wrap:wrap}
+.action-btn{font-size:12px;font-weight:600;padding:6px 14px;border-radius:7px;cursor:pointer;border:none;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:all .15s}
+.btn-pdf{background:var(--gold);color:var(--navy)}
+.btn-pdf:hover{background:var(--gold-light)}
+.btn-csv{background:rgba(255,255,255,.12);color:var(--white);border:1px solid rgba(255,255,255,.2)}
+.btn-csv:hover{background:rgba(255,255,255,.2)}
+.btn-reset{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15)}
+.btn-reset:hover{background:rgba(255,255,255,.15);color:var(--white)}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr)}
+.met{padding:1.125rem 1.25rem;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.met:nth-child(4n){border-right:none}
+.met-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.met-val{font-size:20px;font-weight:800;color:var(--text)}
+.met-val.good{color:var(--green)}
+.met-val.warn{color:var(--amber)}
+.met-val.bad{color:var(--red)}
+.met-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 1.5rem;background:var(--off)}
+.tab{font-size:13px;font-weight:600;color:var(--text3);padding:10px 16px;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
+.tab.active{color:var(--navy);border-bottom-color:var(--gold)}
+.tc{display:none}
+.tc.active{display:block}
+.spread-wrap{overflow-x:auto}
+.stbl{width:100%;border-collapse:collapse;font-size:13px;min-width:600px}
+.stbl th{text-align:left;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--off);white-space:nowrap}
+.stbl th:nth-child(1){width:22%}.stbl th:nth-child(2){width:12%}.stbl th:nth-child(3){width:18%}.stbl th:nth-child(4){width:48%}
+.stbl td{padding:9px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;word-wrap:break-word;font-size:13px}
+.stbl tr:last-child td{border-bottom:none}
+.stbl tr:nth-child(even) td{background:#FAFBFC}
+.stbl td:first-child{font-weight:700}
+.atbl{width:100%;border-collapse:collapse;font-size:12px}
+.atbl th{text-align:left;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--off)}
+.atbl td{padding:8px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top;font-size:12px}
+.atbl tr:last-child td{border-bottom:none}
+.atbl tr:nth-child(even) td{background:#FAFBFC}
+.atbl td:first-child{font-weight:700;color:var(--navy)}
+.atbl td:nth-child(3){font-family:monospace;font-size:11px;color:var(--text2)}
+.atbl td:nth-child(4){font-weight:700}
+.audit-note{font-size:11px;color:var(--text3);padding:10px 16px;border-top:1px solid var(--border);background:var(--off);font-style:italic}
+.flag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;margin-left:4px}
+.flag-ok{background:var(--green-bg);color:var(--green)}
+.flag-warn{background:var(--amber-bg);color:var(--amber)}
+.flag-bad{background:var(--red-bg);color:var(--red)}
+.narr{padding:1.5rem}
+.narr p{font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:1rem}
+.narr p:last-child{margin-bottom:0}
+.ex-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);padding:3px 9px;border-radius:20px;font-weight:700}
+.audit-header{padding:1rem 1.5rem;background:#FFFBEB;border-bottom:1px solid #E8D9A0;display:flex;align-items:center;gap:10px}
+.audit-header svg{width:16px;height:16px;stroke:var(--amber);fill:none;stroke-width:2;flex-shrink:0}
+.audit-header p{font-size:12px;color:var(--amber);font-weight:600}
+.saved-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;background:var(--green-bg);color:var(--green);border:1px solid var(--green-border);padding:3px 9px;border-radius:20px;font-weight:700;margin-left:8px}
+@media(max-width:600px){.metrics{grid-template-columns:repeat(2,1fr)}.met:nth-child(2n){border-right:none}.res-actions{width:100%}.dash-stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav" id="main-nav" style="display:none">
+  <div class="nav-brand">
+    <div class="nav-logo">F</div>
+    <span class="nav-name">Fin<span>Spread</span> AI</span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-email"></span>
+    <button class="nav-btn nav-dash" onclick="showDash()" id="nav-dash-btn">Dashboard</button>
+    <button class="nav-btn nav-dash" onclick="showAdmin()" id="nav-admin-btn" style="display:none">Admin</button>
+    <button class="nav-btn nav-dash" onclick="showProfile()" id="nav-profile-btn" style="display:none">My Account</button>
+    <button class="nav-btn nav-signout" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<!-- AUTH SCREEN -->
+<div class="screen active" id="screen-auth">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">F</div>
+      <div class="auth-title">FinSpread AI</div>
+      <div class="auth-sub">Professional financial spreading for commercial insurance brokers</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="authTab('login',this)">Sign in</button>
+        <button class="auth-tab" onclick="authTab('signup',this)">Create account</button>
+      </div>
+      <div id="auth-login">
+        <div class="auth-field"><label>Email address</label><input class="auth-input" type="email" id="login-email" placeholder="you@youragency.com"></div>
+        <div class="auth-field"><label>Password</label><input class="auth-input" type="password" id="login-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <button class="auth-submit" id="login-btn" onclick="doLogin()">Sign in →</button>
+      </div>
+      <div id="auth-signup" style="display:none">
+        <div class="auth-field"><label>Email address</label><input class="auth-input" type="email" id="signup-email" placeholder="you@youragency.com"></div>
+        <div class="auth-field"><label>Password (min 8 characters)</label><input class="auth-input" type="password" id="signup-pw" placeholder="••••••••"></div>
+        <div class="auth-field"><label>Full name</label><input class="auth-input" type="text" id="signup-name" placeholder="Your name"></div>
+        <div class="auth-field"><label>Agency or firm</label><input class="auth-input" type="text" id="signup-firm" placeholder="Agency name"></div>
+        <button class="auth-submit" id="signup-btn" onclick="doSignup()">Create account →</button>
+      </div>
+      <div class="auth-msg" id="auth-msg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- LOCKED SCREEN -->
+<div class="screen" id="screen-locked">
+  <div class="locked-wrap">
+    <div class="locked-card">
+      <div class="locked-icon">🔒</div>
+      <div class="locked-title">Account Inactive</div>
+      <div class="locked-body">Your FinSpread AI account is currently inactive. Click below to subscribe at $500/month per seat and your account will be activated instantly.</div>
+      <div class="locked-email" id="locked-user-email"></div>
+      <br>
+      <button class="locked-signout" onclick="signOut()">Sign out</button>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div class="screen" id="screen-dash">
+  <div class="dash-wrap">
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">My Spreads</div>
+        <div class="dash-subtitle" id="dash-welcome">Welcome back</div>
+      </div>
+      <button class="new-spread-btn" onclick="showTool()"><span>+</span> New Spread</button>
+    </div>
+    <div class="expiry-warn" id="expiry-warn"></div>
+    <div class="dash-stats">
+      <div class="dash-stat"><div class="dash-stat-val" id="stat-total">0</div><div class="dash-stat-label">Total spreads</div></div>
+      <div class="dash-stat"><div class="dash-stat-val" id="stat-flags">0</div><div class="dash-stat-label">With risk flags</div></div>
+      <div class="dash-stat"><div class="dash-stat-val" id="stat-days">60</div><div class="dash-stat-label">Days retention</div></div>
+    </div>
+    <div class="history-title">Spread history <span style="font-size:12px;color:var(--text3);font-weight:400">(auto-deleted after 60 days — export to keep)</span></div>
+    <div id="history-container"></div>
+  </div>
+</div>
+
+<!-- TOOL SCREEN -->
+<div class="screen" id="screen-tool">
+  <div style="max-width:800px;margin:0 auto;padding:1.5rem 1.5rem 0">
+    <button class="tool-back" onclick="showDash()">← Back to dashboard</button>
+  </div>
+  <div class="hero">
+    <div class="hero-chip">AI-Powered Underwriting</div>
+    <h1>Financial spreading in <em>under a minute</em><br>with a full audit trail</h1>
+    <div class="hero-sub">Drop any PDF — get a complete underwriting spread, risk flags, underwriter narrative, and exportable audit trail.</div>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Upload financial statement</h2><p>Audited, reviewed, compiled, or tax return — any format</p></div>
+      </div>
+      <div class="card-body">
+        <div class="drop" id="drop" onclick="document.getElementById('fin').click()" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="handleDrop(event)">
+          <div class="drop-icon">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9,15 12,12 15,15"/></svg>
+          </div>
+          <h3>Drop PDF here or click to browse</h3>
+          <p>Full packets, audited financials, tax returns — extracted automatically</p>
+          <div class="drop-tags">
+            <span class="dtag">Audited</span><span class="dtag">Reviewed</span><span class="dtag">Tax return</span><span class="dtag">CIM</span>
+          </div>
+          <input type="file" id="fin" accept=".pdf,.txt" style="display:none" onchange="handleFile(event)">
+        </div>
+        <div id="pill-wrap"></div>
+        <div class="or">or paste text</div>
+        <div class="paste-head">
+          <span>Financial statement text</span>
+          <button class="sample-btn" onclick="loadSample()">Load sample</button>
+        </div>
+        <textarea id="txt" placeholder="Paste balance sheet, P&L, or full financial packet here..."></textarea>
+        <button class="analyze-btn" id="abtn" onclick="analyze()">Analyze &amp; Spread <span class="btn-gold">&#x2192;</span></button>
+        <div class="err" id="err"></div>
+        <div class="status" id="status">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          <span id="stxt">Reading document...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="results">
+    <div class="res-card">
+      <div class="res-head">
+        <div class="res-head-left">
+          <div>
+            <div class="res-company" id="rco">Analysis Complete</div>
+            <div class="res-industry" id="rind"></div>
+          </div>
+          <span id="rbadge"></span>
+          <span class="saved-badge" id="saved-badge" style="display:none">&#x2713; Saved to dashboard</span>
+        </div>
+        <div class="res-actions">
+          <button class="action-btn btn-pdf" onclick="exportPDF()">Export PDF</button>
+          <button class="action-btn btn-csv" onclick="exportCSV()">Export CSV</button>
+          <button class="action-btn btn-reset" onclick="resetApp()">New spread</button>
+        </div>
+      </div>
+      <div class="metrics" id="metrics"></div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('spread',this)">Full spread</button>
+        <button class="tab" onclick="switchTab('audit',this)">Audit trail</button>
+        <button class="tab" onclick="switchTab('narrative',this)">Underwriter notes</button>
+      </div>
+      <div class="tc active" id="tc-spread">
+        <div class="spread-wrap">
+          <table class="stbl">
+            <thead><tr><th>Metric</th><th>Value</th><th>Benchmark</th><th>Assessment</th></tr></thead>
+            <tbody id="spread-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tc" id="tc-audit">
+        <div class="audit-header">
+          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <p>Every metric shows source line items, formula, and calculated result — fully traceable to the submitted financial statement.</p>
+        </div>
+        <div class="spread-wrap">
+          <table class="atbl">
+            <thead><tr><th>Metric</th><th>Source data</th><th>Formula</th><th>Result</th><th>Flag</th></tr></thead>
+            <tbody id="audit-body"></tbody>
+          </table>
+        </div>
+        <div class="audit-note">Audit trail generated <span id="audit-ts"></span> — FinSpread AI — All calculations derived from submitted financial statement data only</div>
+      </div>
+      <div class="tc" id="tc-narrative">
+        <div class="narr" id="narr"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN SCREEN -->
+<div class="screen" id="screen-admin">
+  <div class="dash-wrap">
+    <div class="dash-header">
+      <div><div class="dash-title">Admin Panel</div><div class="dash-subtitle">Manage user accounts</div></div>
+      <button class="new-spread-btn" onclick="showDash()">← Back</button>
+    </div>
+    <div id="admin-users-list"></div>
+  </div>
+</div>
+
+<!-- PAYMENT SCREEN -->
+<div class="screen" id="screen-payment">
+  <div class="auth-wrap" style="background:var(--navy)">
+    <div class="auth-card" style="max-width:500px">
+      <div class="auth-logo">F</div>
+      <div class="auth-title">Activate FinSpread AI</div>
+      <div class="auth-sub">$500/month · Cancel anytime · Access starts immediately after payment</div>
+      <div style="background:var(--off);border-radius:var(--r);padding:1.25rem;margin-bottom:1.5rem">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">What's included</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px"><span style="color:var(--green);font-weight:700">✓</span> Unlimited financial spreads</div>
+          <div style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px"><span style="color:var(--green);font-weight:700">✓</span> Full audit trail on every spread</div>
+          <div style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px"><span style="color:var(--green);font-weight:700">✓</span> Risk flags and underwriter narrative</div>
+          <div style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px"><span style="color:var(--green);font-weight:700">✓</span> PDF and CSV export</div>
+          <div style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px"><span style="color:var(--green);font-weight:700">✓</span> 60-day spread history</div>
+          <div style="font-size:13px;color:var(--text2);display:flex;align-items:center;gap:8px"><span style="color:var(--green);font-weight:700">✓</span> Cancel anytime from your account page</div>
+        </div>
+      </div>
+      <button class="auth-submit" id="checkout-btn" onclick="startCheckout()">Subscribe — $500/month →</button>
+      <div class="auth-msg" id="payment-msg"></div>
+      <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:12px">Secured by Stripe · All major cards accepted · Cancel anytime</div>
+      <div style="text-align:center;margin-top:12px">
+        <button onclick="document.getElementById('main-nav').style.display='none';signOut()" style="font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer">Sign out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE SCREEN -->
+<div class="screen" id="screen-profile">
+  <div class="dash-wrap">
+    <div class="dash-header">
+      <div><div class="dash-title">My Account</div><div class="dash-subtitle">Manage your profile and billing</div></div>
+      <button class="new-spread-btn" onclick="showDash()">← Back to Dashboard</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:1.75rem">
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:1.25rem">Profile details</div>
+        <div class="auth-field"><label>Full name</label><input class="auth-input" type="text" id="profile-name" placeholder="Your name"></div>
+        <div class="auth-field"><label>Agency or firm</label><input class="auth-input" type="text" id="profile-firm" placeholder="Agency name"></div>
+        <div class="auth-field"><label>Email address</label><input class="auth-input" type="text" id="profile-email" disabled style="opacity:.6;cursor:not-allowed"></div>
+        <button class="auth-submit" id="profile-save-btn" onclick="saveProfile()" style="margin-top:6px">Save changes</button>
+        <div class="auth-msg" id="profile-msg"></div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--rl);padding:1.75rem">
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:1.25rem">Billing &amp; subscription</div>
+        <div id="billing-status-block"></div>
+        <button id="billing-portal-btn" onclick="openBillingPortal()" style="width:100%;padding:12px;font-size:14px;font-weight:600;background:var(--navy);color:var(--white);border:none;border-radius:var(--r);cursor:pointer;margin-top:1rem;display:none">Manage billing &amp; cancel →</button>
+        <div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.6">Update your payment method, view invoices, or cancel your subscription from the Stripe billing portal.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://kkbmbuuetwzslkerjvin.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ca225kL7McXYdS3DBdvs1w_3RGftOXl';
+const ADMIN_EMAIL  = 'kevin@kodadvisory.com';
+const STRIPE_PK    = 'pk_live_RYzjLJVA33udxWZRl01URynt00WRKEiRjr';
+const PRICE_ID     = 'price_1TRfelCFAT8jf2EUmvr7w4IT';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const stripeClient = Stripe(STRIPE_PK);
+
+var currentUser = null, currentProfile = null;
+var lastResult = null, lastSource = '', curFile = null, pdfReady = false;
+var msgIdx = 0, msgTimer = null;
+var MSGS = ['Reading document...','Extracting financial data...','Normalizing line items...','Calculating ratios...','Benchmarking against industry...','Generating audit trail...','Writing underwriter notes...'];
+var SAMPLE = 'ABC Manufacturing Inc — Financial Statements FY 2023\n\nINCOME STATEMENT\nRevenue: $8,450,000\nCost of Goods Sold: $5,490,000\nGross Profit: $2,960,000\nSelling Admin Expenses: $1,620,000\nDepreciation: $340,000\nEBITDA: $1,680,000\nInterest Expense: $210,000\nNet Income: $848,000\n\nBALANCE SHEET\nCash: $320,000\nAccounts Receivable: $1,240,000\nInventory: $980,000\nTotal Current Assets: $2,540,000\nTotal Assets: $6,800,000\nAccounts Payable: $640,000\nTotal Current Liabilities: $1,180,000\nLong-term Debt: $2,100,000\nTotal Liabilities: $3,780,000\nShareholders Equity: $3,020,000\n\nIndustry: Commercial Manufacturing\nYears in Business: 14';
+
+window.addEventListener('DOMContentLoaded', async function() {
+  document.getElementById('main-nav').style.display = 'none';
+  var {data:{session}} = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+    routeUser();
+  } else {
+    showScreen('auth');
+  }
+  sb.auth.onAuthStateChange(async function(event, session) {
+    if (session) {
+      currentUser = session.user;
+      await loadProfile();
+      routeUser();
+    } else {
+      currentUser = null; currentProfile = null;
+      document.getElementById('main-nav').style.display = 'none';
+      showScreen('auth');
+    }
+  });
+});
+
+async function loadProfile() {
+  var {data} = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = data;
+}
+
+function routeUser() {
+  document.getElementById('main-nav').style.display = 'flex';
+  document.getElementById('nav-email').textContent = currentUser.email;
+  var params = new URLSearchParams(window.location.search);
+  var paymentStatus = params.get('payment');
+  if (paymentStatus) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+  if (paymentStatus === 'success') {
+    pollForActivation();
+    return;
+  }
+  if (!currentProfile || !currentProfile.is_active) {
+    if (currentProfile && currentProfile.stripe_customer_id) {
+      document.getElementById('locked-user-email').textContent = 'Signed in as: ' + currentUser.email;
+      showScreen('locked');
+    } else {
+      showScreen('payment');
+    }
+  } else if (currentUser.email === ADMIN_EMAIL) {
+    document.getElementById('nav-admin-btn').style.display = 'inline-block';
+    document.getElementById('nav-profile-btn').style.display = 'inline-block';
+    showDash();
+  } else {
+    document.getElementById('nav-profile-btn').style.display = 'inline-block';
+    showDash();
+  }
+}
+
+async function pollForActivation(attempts) {
+  attempts = attempts || 0;
+  if (attempts > 10) {
+    document.getElementById('main-nav').style.display = 'flex';
+    showScreen('payment');
+    document.getElementById('payment-msg').textContent = 'Payment received! Your account is being activated — please refresh in a moment.';
+    document.getElementById('payment-msg').className = 'auth-msg ok';
+    document.getElementById('checkout-btn').style.display = 'none';
+    return;
+  }
+  await loadProfile();
+  if (currentProfile && currentProfile.is_active) {
+    document.getElementById('main-nav').style.display = 'flex';
+    document.getElementById('nav-profile-btn').style.display = 'inline-block';
+    if (currentUser.email === ADMIN_EMAIL) {
+      document.getElementById('nav-admin-btn').style.display = 'inline-block';
+    }
+    showDash();
+  } else {
+    setTimeout(function(){ pollForActivation(attempts + 1); }, 2000);
+  }
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  document.getElementById('screen-' + name).classList.add('active');
+  document.getElementById('main-nav').style.display = name === 'payment' ? 'none' : 'flex';
+}
+
+function showDash() { showScreen('dash'); loadHistory(); }
+function showTool() { showScreen('tool'); resetApp(); }
+function showProfile() { showScreen('profile'); loadProfile_UI(); }
+
+function authTab(tab, btn) {
+  document.querySelectorAll('.auth-tab').forEach(function(t){ t.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('auth-signup').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-msg').className = 'auth-msg';
+}
+
+function authMsg(text, type) {
+  var el = document.getElementById('auth-msg');
+  el.textContent = text;
+  el.className = 'auth-msg ' + type;
+}
+
+async function doLogin() {
+  var email = document.getElementById('login-email').value.trim();
+  var pw = document.getElementById('login-pw').value;
+  if (!email || !pw) { authMsg('Please enter your email and password.', 'err'); return; }
+  var btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  var {error} = await sb.auth.signInWithPassword({email, password: pw});
+  btn.disabled = false; btn.textContent = 'Sign in →';
+  if (error) { authMsg(error.message, 'err'); }
+}
+
+async function doSignup() {
+  var email = document.getElementById('signup-email').value.trim();
+  var pw = document.getElementById('signup-pw').value;
+  var name = document.getElementById('signup-name').value.trim();
+  var firm = document.getElementById('signup-firm').value.trim();
+  if (!email || !pw || !name) { authMsg('Please fill in all required fields.', 'err'); return; }
+  if (pw.length < 8) { authMsg('Password must be at least 8 characters.', 'err'); return; }
+  var btn = document.getElementById('signup-btn');
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  var {data, error} = await sb.auth.signUp({email, password: pw, options:{data:{full_name:name, firm:firm}}});
+  btn.disabled = false; btn.textContent = 'Create account →';
+  if (error) { authMsg(error.message || 'An error occurred. Please try again.', 'err'); return; }
+  authMsg('Account created! Please sign in below to subscribe and activate your account.', 'ok');
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  document.getElementById('main-nav').style.display = 'none';
+  setTimeout(function(){ window.location.href = window.location.pathname; }, 300);
+}
+
+async function loadHistory() {
+  if (!currentUser) return;
+  var name = currentProfile ? (currentProfile.full_name || currentUser.email) : currentUser.email;
+  document.getElementById('dash-welcome').textContent = 'Welcome back, ' + name.split(' ')[0];
+  var {data: spreads} = await sb.from('spreads').select('*').eq('user_id', currentUser.id).order('created_at', {ascending: false});
+  spreads = spreads || [];
+  document.getElementById('stat-total').textContent = spreads.length;
+  var flagged = spreads.filter(function(s){ return s.has_flags; }).length;
+  document.getElementById('stat-flags').textContent = flagged;
+  var soon = spreads.filter(function(s){
+    var exp = new Date(s.expires_at);
+    var diff = (exp - new Date()) / (1000*60*60*24);
+    return diff > 0 && diff <= 10;
+  });
+  var warnEl = document.getElementById('expiry-warn');
+  if (soon.length > 0) {
+    warnEl.style.display = 'block';
+    warnEl.textContent = '⚠ ' + soon.length + ' spread' + (soon.length>1?'s':'') + ' expiring within 10 days. Export them to keep the data.';
+  } else { warnEl.style.display = 'none'; }
+  var container = document.getElementById('history-container');
+  if (spreads.length === 0) {
+    container.innerHTML = '<div class="history-empty"><div class="history-empty-icon">📊</div><h3>No spreads yet</h3><p>Click "New Spread" to upload your first financial statement.</p></div>';
+    return;
+  }
+  var html = '<div class="history-list">';
+  spreads.forEach(function(s) {
+    var exp = new Date(s.expires_at);
+    var daysLeft = Math.ceil((exp - new Date()) / (1000*60*60*24));
+    var expLabel = daysLeft <= 10 ? '<span style="color:var(--amber)">Expires in ' + daysLeft + 'd</span>' : 'Expires in ' + daysLeft + 'd';
+    var dot = s.overall_flag || 'ok';
+    var flagLabel = {ok:'All Clear', warn:'Review', bad:'Flagged'}[dot] || 'Review';
+    var date = new Date(s.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    html += '<div class="history-item" onclick="loadSpread(\'' + s.id + '\')">';
+    html += '<div class="history-item-left">';
+    html += '<div class="history-dot ' + dot + '"></div>';
+    html += '<div><div class="history-company">' + escHtml(s.company_name || 'Unknown Company') + '</div>';
+    html += '<div class="history-meta">' + escHtml(s.industry || '') + (s.fiscal_year ? ' · ' + s.fiscal_year : '') + ' · ' + date + '</div></div></div>';
+    html += '<div class="history-item-right">';
+    html += '<span class="history-flag ' + dot + '">' + flagLabel + '</span>';
+    html += '<span class="history-expiry">' + expLabel + '</span>';
+    html += '<button class="history-delete" onclick="deleteSpread(event,\'' + s.id + '\')">Delete</button>';
+    html += '</div></div>';
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+async function loadSpread(id) {
+  var {data} = await sb.from('spreads').select('*').eq('id', id).single();
+  if (!data || !data.result_json) return;
+  lastResult = data.result_json;
+  lastSource = data.source_name || '';
+  showScreen('tool');
+  document.getElementById('results').classList.remove('on');
+  document.getElementById('txt').value = '';
+  clearFile();
+  renderResults(lastResult, lastSource);
+}
+
+async function deleteSpread(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this spread? This cannot be undone.')) return;
+  await sb.from('spreads').delete().eq('id', id);
+  loadHistory();
+  showDash();
+}
+
+async function saveSpread(result, source) {
+  if (!currentUser) return;
+  var overallFlag = 'ok';
+  var spread = result.spread || [];
+  var hasFlags = spread.some(function(r){ return r.flag === 'bad' || r.flag === 'warn'; });
+  if (spread.some(function(r){ return r.flag === 'bad'; })) overallFlag = 'bad';
+  else if (hasFlags) overallFlag = 'warn';
+  var expires = new Date();
+  expires.setDate(expires.getDate() + 60);
+  await sb.from('spreads').insert({
+    user_id: currentUser.id,
+    company_name: result.company_name || 'Unknown',
+    industry: result.industry || '',
+    fiscal_year: result.fiscal_year || '',
+    overall_flag: overallFlag,
+    has_flags: hasFlags,
+    source_name: source,
+    result_json: result,
+    expires_at: expires.toISOString()
+  });
+  document.getElementById('saved-badge').style.display = 'inline-flex';
+}
+
+async function showAdmin() {
+  if (currentUser.email !== ADMIN_EMAIL) return;
+  showScreen('admin');
+  document.getElementById('admin-users-list').innerHTML = '<p style="color:var(--text3)">Loading...</p>';
+  try {
+    var res = await fetch('/api/admin-users', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({adminEmail: currentUser.email})
+    });
+    var data = await res.json();
+    var profiles = data.profiles || [];
+    if (profiles.length === 0) {
+      document.getElementById('admin-users-list').innerHTML = '<p style="color:var(--text3)">No users yet.</p>';
+      return;
+    }
+    var activeUsers = profiles.filter(function(p){ return p.is_active; });
+    var inactiveUsers = profiles.filter(function(p){ return !p.is_active; });
+    var html = '<div style="display:flex;gap:1rem;margin-bottom:1.5rem">';
+    html += '<div class="dash-stat"><div class="dash-stat-val">' + profiles.length + '</div><div class="dash-stat-label">Total accounts</div></div>';
+    html += '<div class="dash-stat"><div class="dash-stat-val" style="color:var(--green)">' + activeUsers.length + '</div><div class="dash-stat-label">Active (paying)</div></div>';
+    html += '<div class="dash-stat"><div class="dash-stat-val" style="color:var(--red)">' + inactiveUsers.length + '</div><div class="dash-stat-label">Inactive</div></div>';
+    html += '</div>';
+    function renderUserCard(p) {
+      var isActive = p.is_active;
+      var statusBg = isActive ? 'var(--green-bg)' : 'var(--red-bg)';
+      var statusColor = isActive ? 'var(--green)' : 'var(--red)';
+      var statusLabel = isActive ? '● Active' : '● Inactive';
+      var joined = new Date(p.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+      var card = '<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem 1.5rem;display:grid;grid-template-columns:1fr auto;gap:1rem;align-items:center">';
+      card += '<div><div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px">' + escHtml(p.email || '') + '</div>';
+      card += '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">' + escHtml(p.full_name || '—') + ' · ' + escHtml(p.firm || '—') + '</div>';
+      card += '<div style="font-size:12px;color:var(--text3)">Joined ' + joined + '</div></div>';
+      card += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">';
+      card += '<span style="font-size:12px;font-weight:700;color:' + statusColor + ';background:' + statusBg + ';padding:4px 12px;border-radius:20px">' + statusLabel + '</span>';
+      if (isActive) {
+        card += '<button style="font-size:12px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer;border:1px solid var(--red);background:var(--red-bg);color:var(--red)" onclick="toggleUser(\'' + p.id + '\',false,\'' + escHtml(p.email||'') + '\')">Deactivate</button>';
+      } else {
+        card += '<button style="font-size:12px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer;border:none;background:var(--navy);color:var(--white)" onclick="toggleUser(\'' + p.id + '\',true,\'' + escHtml(p.email||'') + '\')">Activate</button>';
+      }
+      card += '<button style="font-size:11px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text3)" onclick="deleteUser(\'' + p.id + '\',\'' + escHtml(p.email||'') + '\')">Delete</button>';
+      card += '</div></div>';
+      return card;
+    }
+    if (activeUsers.length > 0) {
+      html += '<div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;margin-top:4px">Active users (' + activeUsers.length + ')</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:.75rem;margin-bottom:1.5rem">';
+      activeUsers.forEach(function(p){ html += renderUserCard(p); });
+      html += '</div>';
+    }
+    if (inactiveUsers.length > 0) {
+      html += '<div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;padding-top:1rem;border-top:1px solid var(--border)">Inactive users (' + inactiveUsers.length + ')</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:.75rem">';
+      inactiveUsers.forEach(function(p){ html += renderUserCard(p); });
+      html += '</div>';
+    }
+    document.getElementById('admin-users-list').innerHTML = html;
+  } catch(e) {
+    document.getElementById('admin-users-list').innerHTML = '<p style="color:var(--red)">Error: ' + e.message + '</p>';
+  }
+}
+
+async function toggleUser(userId, active, email) {
+  var action = active ? 'activate' : 'deactivate';
+  if (!confirm('Are you sure you want to ' + action + ' ' + email + '?')) return;
+  await fetch('/api/admin-users', {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({adminEmail: currentUser.email, userId, active})
+  });
+  showAdmin();
+}
+
+async function deleteUser(userId, email) {
+  if (!confirm('Permanently delete ' + email + '? This removes all their data and cannot be undone.')) return;
+  try {
+    var res = await fetch('/api/admin-users', {
+      method: 'DELETE',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({adminEmail: currentUser.email, userId})
+    });
+    var data = await res.json();
+    if (data.error) { alert('Error: ' + data.error); return; }
+    showAdmin();
+  } catch(e) {
+    alert('Error deleting user: ' + e.message);
+  }
+}
+
+async function startCheckout() {
+  var btn = document.getElementById('checkout-btn');
+  btn.disabled = true; btn.textContent = 'Redirecting to payment...';
+  var msg = document.getElementById('payment-msg');
+  msg.className = 'auth-msg';
+  try {
+    var res = await fetch('/api/create-checkout', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email: currentUser.email, userId: currentUser.id, priceId: PRICE_ID})
+    });
+    var data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error(data.error || 'Checkout failed');
+    }
+  } catch(e) {
+    msg.textContent = 'Error: ' + e.message;
+    msg.className = 'auth-msg err';
+    btn.disabled = false;
+    btn.textContent = 'Subscribe — $500/month →';
+  }
+}
+
+async function loadProfile_UI() {
+  if (!currentUser) return;
+  document.getElementById('profile-email').value = currentUser.email;
+  if (currentProfile) {
+    document.getElementById('profile-name').value = currentProfile.full_name || '';
+    document.getElementById('profile-firm').value = currentProfile.firm || '';
+  }
+  var block = document.getElementById('billing-status-block');
+  var portalBtn = document.getElementById('billing-portal-btn');
+  if (currentProfile && currentProfile.is_active) {
+    block.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--green-bg);border:1px solid var(--green-border);border-radius:var(--r)"><span style="font-size:16px">✓</span><div><div style="font-size:13px;font-weight:700;color:var(--green)">Active subscription</div><div style="font-size:12px;color:var(--green);opacity:.8">$500/month · Renews automatically</div></div></div>';
+    portalBtn.style.display = 'block';
+  } else {
+    block.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--red-bg);border:1px solid var(--red-border);border-radius:var(--r)"><span style="font-size:16px">⚠</span><div><div style="font-size:13px;font-weight:700;color:var(--red)">No active subscription</div><div style="font-size:12px;color:var(--red);opacity:.8">Subscribe to access FinSpread AI</div></div></div>';
+    portalBtn.style.display = 'none';
+  }
+}
+
+async function saveProfile() {
+  var name = document.getElementById('profile-name').value.trim();
+  var firm = document.getElementById('profile-firm').value.trim();
+  var btn = document.getElementById('profile-save-btn');
+  var msg = document.getElementById('profile-msg');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  var {error} = await sb.from('profiles').update({full_name: name, firm: firm}).eq('id', currentUser.id);
+  btn.disabled = false; btn.textContent = 'Save changes';
+  if (error) {
+    msg.textContent = 'Error saving. Please try again.';
+    msg.className = 'auth-msg err';
+  } else {
+    currentProfile.full_name = name;
+    currentProfile.firm = firm;
+    msg.textContent = 'Profile updated successfully.';
+    msg.className = 'auth-msg ok';
+    setTimeout(function(){ msg.className = 'auth-msg'; }, 3000);
+  }
+}
+
+async function openBillingPortal() {
+  var btn = document.getElementById('billing-portal-btn');
+  btn.textContent = 'Opening portal...';
+  btn.disabled = true;
+  try {
+    var res = await fetch('/api/billing-portal', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({userId: currentUser.id, email: currentUser.email})
+    });
+    var data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      throw new Error(data.error || 'Could not open portal');
+    }
+  } catch(e) {
+    alert('Error: ' + e.message);
+    btn.textContent = 'Manage billing & cancel →';
+    btn.disabled = false;
+  }
+}
+
+function loadSample() { document.getElementById('txt').value = SAMPLE; clearFile(); }
+function showPill(name) {
+  document.getElementById('pill-wrap').innerHTML = '<div class="file-pill">' + escHtml(name) + ' <button class="rm" onclick="clearFile()">x</button></div>';
+}
+function clearFile() {
+  curFile = null;
+  document.getElementById('pill-wrap').innerHTML = '';
+  document.getElementById('fin').value = '';
+}
+function handleFile(e) {
+  var f = e.target.files[0]; if (!f) return;
+  curFile = f; showPill(f.name);
+  document.getElementById('txt').value = '';
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop').classList.remove('over');
+  var f = e.dataTransfer.files[0]; if (!f) return;
+  curFile = f; showPill(f.name);
+  document.getElementById('txt').value = '';
+}
+
+function extractPdf(file) {
+  if (!pdfReady && typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfReady = true;
+  }
+  return file.arrayBuffer().then(function(ab) {
+    return pdfjsLib.getDocument({data:ab}).promise;
+  }).then(function(pdf) {
+    var pages = [];
+    for (var i = 1; i <= pdf.numPages; i++) pages.push(i);
+    return pages.reduce(function(chain, pageNum) {
+      return chain.then(function(txt) {
+        return pdf.getPage(pageNum).then(function(page) {
+          return page.getTextContent();
+        }).then(function(content) {
+          return txt + content.items.map(function(x){ return x.str; }).join(' ') + '\n';
+        });
+      });
+    }, Promise.resolve(''));
+  });
+}
+
+function setStatus(on, msg) {
+  var el = document.getElementById('status');
+  if (on) {
+    el.classList.add('on');
+    document.getElementById('stxt').textContent = msg || MSGS[0];
+    msgIdx = 0;
+    msgTimer = setInterval(function() {
+      msgIdx = (msgIdx+1) % MSGS.length;
+      document.getElementById('stxt').textContent = MSGS[msgIdx];
+    }, 2200);
+  } else { el.classList.remove('on'); clearInterval(msgTimer); }
+}
+
+function showErr(m) { var e = document.getElementById('err'); e.textContent = m; e.classList.add('on'); }
+function hideErr() { document.getElementById('err').classList.remove('on'); }
+
+function analyze() {
+  hideErr();
+  var btn = document.getElementById('abtn');
+  function doAnalyze(inputText, source) {
+    if (!inputText || inputText.length < 50) { showErr('Please upload a PDF or paste financial statement text first.'); return; }
+    btn.disabled = true; setStatus(true); lastSource = source;
+    var trunc = inputText.length > 14000 ? inputText.slice(0,14000) + '\n[truncated]' : inputText;
+    var prompt = 'You are an expert commercial insurance underwriter and CPA. Analyze the financial statement below and return ONLY valid JSON with no markdown fences.\n\nReturn this exact structure:\n{\n  "company_name": "string",\n  "industry": "string",\n  "fiscal_year": "string like FY2023",\n  "snapshot": {\n    "revenue": "like $8.4M",\n    "ebitda_margin": "like 19.9%",\n    "debt_to_equity": "like 1.25x",\n    "current_ratio": "like 2.1x"\n  },\n  "snapshot_flags": {\n    "revenue": "good or warn or bad",\n    "ebitda_margin": "good or warn or bad",\n    "debt_to_equity": "good or warn or bad",\n    "current_ratio": "good or warn or bad"\n  },\n  "spread": [\n    {\n      "metric": "metric name",\n      "value": "formatted value",\n      "benchmark": "industry benchmark range",\n      "flag": "ok or warn or bad",\n      "assessment": "1 concise sentence"\n    }\n  ],\n  "audit": [\n    {\n      "metric": "same metric name",\n      "sources": "line items from statement",\n      "formula": "formula used",\n      "result": "calculated result",\n      "flag": "ok or warn or bad"\n    }\n  ],\n  "narrative": "4 paragraph underwriter summary covering business overview, strengths, risk factors, and overall insurability."\n}\n\nInclude at least 12 metrics in spread AND matching entries in audit.\n\nFinancial data:\n' + trunc;
+    fetch('/api/proxy', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-5', max_tokens:4000, messages:[{role:'user', content:prompt}]})
+    }).then(function(res) {
+      if (!res.ok) return res.json().then(function(ed){ throw new Error(ed&&ed.error&&ed.error.message?ed.error.message:res.statusText); });
+      return res.json();
+    }).then(function(data) {
+      var raw = data.content[0].text.trim().replace(/```json|```/g,'').trim();
+      var json = JSON.parse(raw);
+      lastResult = json;
+      setStatus(false); btn.disabled = false;
+      renderResults(json, source);
+      saveSpread(json, source);
+    }).catch(function(e) {
+      setStatus(false); btn.disabled = false;
+      showErr('Error: ' + (e.message || 'Analysis failed'));
+    });
+  }
+  if (curFile) {
+    var isPdf = curFile.name.toLowerCase().indexOf('.pdf') > -1 || curFile.type.indexOf('pdf') > -1;
+    if (isPdf) {
+      setStatus(true, 'Extracting PDF text...');
+      btn.disabled = true;
+      extractPdf(curFile).then(function(text) {
+        if (!text || text.length < 80) { setStatus(false); btn.disabled = false; showErr('Could not extract text from this PDF. It may be scanned. Please paste the text directly.'); return; }
+        doAnalyze(text, curFile.name);
+      }).catch(function() { setStatus(false); btn.disabled = false; showErr('PDF extraction failed. Please paste the text directly.'); });
+    } else {
+      var reader = new FileReader();
+      reader.onload = function(ev){ doAnalyze(ev.target.result, curFile.name); };
+      reader.readAsText(curFile);
+    }
+  } else {
+    doAnalyze(document.getElementById('txt').value.trim(), 'text');
+  }
+}
+
+var FM = {
+  ok:'<span class="flag flag-ok">Pass</span>',
+  warn:'<span class="flag flag-warn">Review</span>',
+  bad:'<span class="flag flag-bad">Flag</span>'
+};
+
+function renderResults(d, src) {
+  document.getElementById('rco').textContent = d.company_name || 'Analysis';
+  document.getElementById('rind').textContent = [d.industry, d.fiscal_year].filter(Boolean).join(' - ');
+  var isPdf = src && src.toLowerCase().indexOf('.pdf') > -1;
+  document.getElementById('rbadge').innerHTML = isPdf ? '<span class="ex-badge">Extracted from PDF</span>' : '';
+  document.getElementById('saved-badge').style.display = 'none';
+  var snap = d.snapshot||{}, flags = d.snapshot_flags||{};
+  var ks = [{k:'revenue',l:'Revenue',s:'Annual'},{k:'ebitda_margin',l:'EBITDA Margin',s:'Profitability'},{k:'debt_to_equity',l:'Debt / Equity',s:'Leverage'},{k:'current_ratio',l:'Current Ratio',s:'Liquidity'}];
+  var mHtml = '';
+  ks.forEach(function(x){ mHtml += '<div class="met"><div class="met-label">'+x.l+'</div><div class="met-val '+(flags[x.k]||'')+'">'+( snap[x.k]||'--')+'</div><div class="met-sub">'+x.s+'</div></div>'; });
+  document.getElementById('metrics').innerHTML = mHtml;
+  var sHtml = '';
+  (d.spread||[]).forEach(function(r){ sHtml += '<tr><td>'+(r.metric||'')+'</td><td>'+(r.value||'')+'</td><td style="color:var(--text3)">'+(r.benchmark||'--')+'</td><td>'+(r.assessment||'')+' '+(FM[r.flag]||'')+'</td></tr>'; });
+  document.getElementById('spread-body').innerHTML = sHtml;
+  document.getElementById('audit-ts').textContent = new Date().toLocaleString();
+  var aHtml = '';
+  (d.audit||[]).forEach(function(a){ aHtml += '<tr><td>'+(a.metric||'')+'</td><td style="color:var(--text2);font-size:11px">'+(a.sources||'--')+'</td><td>'+(a.formula||'--')+'</td><td>'+(a.result||'--')+'</td><td>'+(FM[a.flag]||'')+'</td></tr>'; });
+  document.getElementById('audit-body').innerHTML = aHtml;
+  var narr = (d.narrative||'').split('\n\n');
+  var nHtml = '';
+  narr.forEach(function(p){ if(p) nHtml += '<p>'+p+'</p>'; });
+  document.getElementById('narr').innerHTML = nHtml;
+  document.getElementById('results').classList.add('on');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.tc').forEach(function(t){ t.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('tc-'+name).classList.add('active');
+}
+
+function resetApp() {
+  document.getElementById('results').classList.remove('on');
+  document.getElementById('txt').value = '';
+  clearFile(); lastResult = null;
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function exportCSV() {
+  if (!lastResult) return;
+  var d = lastResult;
+  var rows = [['FinSpread AI Underwriting Analysis Export'],['Company',d.company_name||''],['Industry',d.industry||''],['Fiscal Year',d.fiscal_year||''],['Generated',new Date().toLocaleString()],['Source',lastSource],[],['SNAPSHOT'],['Revenue',d.snapshot?d.snapshot.revenue:''],['EBITDA Margin',d.snapshot?d.snapshot.ebitda_margin:''],['Debt / Equity',d.snapshot?d.snapshot.debt_to_equity:''],['Current Ratio',d.snapshot?d.snapshot.current_ratio:''],[],['FULL SPREAD'],['Metric','Value','Benchmark','Assessment','Flag']];
+  (d.spread||[]).forEach(function(r){ rows.push([r.metric,r.value,r.benchmark||'',r.assessment||'',r.flag||'']); });
+  rows.push([]); rows.push(['AUDIT TRAIL']); rows.push(['Metric','Source Data','Formula','Result','Flag']);
+  (d.audit||[]).forEach(function(a){ rows.push([a.metric,a.sources||'',a.formula||'',a.result||'',a.flag||'']); });
+  rows.push([]); rows.push(['UNDERWRITER NARRATIVE']); rows.push([d.narrative||'']);
+  var csv = '';
+  rows.forEach(function(row){ if(!row.length){csv+='\n';return;} csv+=row.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',')+'\n'; });
+  var blob = new Blob([csv],{type:'text/csv'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href=url; a.download='FinSpread_'+((d.company_name||'Analysis').replace(/\s+/g,'_'))+'_'+(d.fiscal_year||'FY')+'.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportPDF() {
+  if (!lastResult) return;
+  var d = lastResult, ts = new Date().toLocaleString();
+  var fcolor = {ok:'#276749',warn:'#92400E',bad:'#9B2335'};
+  var fm = {ok:'PASS',warn:'REVIEW',bad:'FLAG'};
+  var spreadRows = '';
+  (d.spread||[]).forEach(function(r){
+    var bg = r.flag==='bad'?'#FFF5F5':r.flag==='warn'?'#FFFBEB':'#fff';
+    var fc = fcolor[r.flag]||'#666';
+    spreadRows += '<tr style="background:'+bg+'"><td style="font-weight:700;padding:7px 10px;border-bottom:1px solid #E2E8F0;font-size:12px">'+(r.metric||'')+'</td><td style="padding:7px 10px;border-bottom:1px solid #E2E8F0;font-size:12px">'+(r.value||'')+'</td><td style="padding:7px 10px;border-bottom:1px solid #E2E8F0;font-size:12px;color:#8A96A3">'+(r.benchmark||'--')+'</td><td style="padding:7px 10px;border-bottom:1px solid #E2E8F0;font-size:12px">'+(r.assessment||'')+'</td><td style="padding:7px 10px;border-bottom:1px solid #E2E8F0;font-size:11px;font-weight:700;color:'+fc+'">'+(fm[r.flag]||'')+'</td></tr>';
+  });
+  var auditRows = '';
+  (d.audit||[]).forEach(function(a){
+    var afc = fcolor[a.flag]||'#666';
+    auditRows += '<tr><td style="font-weight:700;padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:11px;color:#0F1C33">'+(a.metric||'')+'</td><td style="padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:10px;color:#4A5568">'+(a.sources||'--')+'</td><td style="padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:10px;font-family:monospace;color:#4A5568">'+(a.formula||'--')+'</td><td style="padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:11px;font-weight:700">'+(a.result||'--')+'</td><td style="padding:6px 10px;border-bottom:1px solid #E2E8F0;font-size:10px;font-weight:700;color:'+afc+'">'+(fm[a.flag]||'')+'</td></tr>';
+  });
+  var snap = d.snapshot||{}, snapFlags = d.snapshot_flags||{};
+  var fbg = {ok:'#F0FFF4',warn:'#FFFBEB',bad:'#FFF5F5'};
+  var snapCards = '';
+  [{l:'Revenue',k:'revenue'},{l:'EBITDA Margin',k:'ebitda_margin'},{l:'Debt / Equity',k:'debt_to_equity'},{l:'Current Ratio',k:'current_ratio'}].forEach(function(sk){
+    var sbg = fbg[snapFlags[sk.k]]||'#F5F7FA', sfc = fcolor[snapFlags[sk.k]]||'#0F1C33';
+    snapCards += '<div style="flex:1;min-width:120px;background:'+sbg+';border:1px solid '+(fcolor[snapFlags[sk.k]]||'#E2E8F0')+'33;border-radius:8px;padding:12px 14px"><div style="font-size:10px;color:#8A96A3;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">'+sk.l+'</div><div style="font-size:20px;font-weight:800;color:'+sfc+'">'+(snap[sk.k]||'--')+'</div></div>';
+  });
+  var narrHtml = '';
+  (d.narrative||'').split('\n\n').forEach(function(p){ if(p) narrHtml += '<p style="font-size:13px;color:#4A5568;line-height:1.75;margin:0 0 1rem">'+p+'</p>'; });
+  var cn = d.company_name||'Company Analysis', ify = [d.industry,d.fiscal_year].filter(Boolean).join(' - ');
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>FinSpread AI - '+cn+'</title><style>body{font-family:Arial,sans-serif;margin:0;padding:0;color:#0F1C33}@media print{body{margin:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}.page{max-width:900px;margin:0 auto;padding:2rem}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:10px;font-weight:700;color:#8A96A3;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:2px solid #0F1C33;background:#F5F7FA}</style></head><body><div class="page"><div style="background:#0F1C33;padding:1.5rem 2rem;border-radius:10px;margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;color:#C9A84C;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px">FinSpread AI - Underwriting Analysis</div><div style="font-size:22px;font-weight:800;color:#fff">'+cn+'</div><div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:2px">'+ify+'</div></div><div style="text-align:right"><div style="font-size:11px;color:rgba(255,255,255,.4)">Generated</div><div style="font-size:12px;color:rgba(255,255,255,.7)">'+ts+'</div></div></div><div style="margin-bottom:1.5rem"><div style="font-size:11px;font-weight:700;color:#8A96A3;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.75rem">Underwriting Snapshot</div><div style="display:flex;gap:.75rem;flex-wrap:wrap">'+snapCards+'</div></div><div style="margin-bottom:1.5rem"><div style="font-size:11px;font-weight:700;color:#8A96A3;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.75rem">Full Underwriting Spread</div><table><thead><tr><th>Metric</th><th>Value</th><th>Benchmark</th><th>Assessment</th><th>Flag</th></tr></thead><tbody>'+spreadRows+'</tbody></table></div><div style="margin-bottom:1.5rem;page-break-before:always"><div style="font-size:11px;font-weight:700;color:#8A96A3;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.5rem">Calculation Audit Trail</div><table><thead><tr><th>Metric</th><th>Source Data</th><th>Formula</th><th>Result</th><th>Flag</th></tr></thead><tbody>'+auditRows+'</tbody></table></div><div style="margin-bottom:1.5rem"><div style="font-size:11px;font-weight:700;color:#8A96A3;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.75rem">Underwriter Narrative</div><div style="background:#F5F7FA;border-radius:8px;padding:1.25rem 1.5rem;border:1px solid #E2E8F0">'+narrHtml+'</div></div><div style="border-top:1px solid #E2E8F0;padding-top:1rem;display:flex;justify-content:space-between"><div style="font-size:10px;color:#8A96A3">Generated by FinSpread AI - For underwriting use only</div><div style="font-size:10px;color:#C9A84C;font-weight:700">CONFIDENTIAL</div></div></div><script>window.onload=function(){window.print();}<\/script></body></html>';
+  var w = window.open('','_blank');
+  if(w){w.document.write(html);w.document.close();}
+}
+</script>
+</body>
+</html>
